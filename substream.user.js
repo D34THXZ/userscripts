@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Subtitle and Stream Link Scanner
 // @namespace    Violentmonkey Scripts
-// @version      2.0
+// @version      2.1
 // @description  Scan for VTT and M3U8 links on any website.
 // @author       DARKIE
 // @homepageURL  https://d34thxz.github.io/substream-viewer
@@ -251,18 +251,48 @@
                 </div>
             `;
 
-            // Add click-to-copy functionality
+            // Add click-to-copy functionality with fallback
             linkElement.addEventListener('click', () => {
-                navigator.clipboard.writeText(url);
-                linkElement.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
-                setTimeout(() => {
-                    linkElement.style.backgroundColor = '';
-                }, 500);
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        // Indicate success
+                        linkElement.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
+                        setTimeout(() => {
+                            linkElement.style.backgroundColor = '';
+                        }, 500);
+                    }).catch(err => {
+                        console.error('Clipboard error:', err);
+                        this.copyFallback(url, linkElement);
+                    });
+                } else {
+                    this.copyFallback(url, linkElement);
+                }
             });
 
             container.insertBefore(linkElement, container.firstChild);
             this.show();
         }
+
+        // Fallback copy method
+        copyFallback(text, linkElement) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed'; // Prevents scrolling to bottom
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                linkElement.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
+                setTimeout(() => {
+                    linkElement.style.backgroundColor = '';
+                }, 500);
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+            }
+            document.body.removeChild(textarea);
+        }
+
 
         clearLinks() {
             document.getElementById('vtt-content').innerHTML = '<div class="scanner-empty">No VTT files detected yet...</div>';
