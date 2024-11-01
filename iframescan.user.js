@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Iframe Source Scanner
 // @namespace    Violentmonkey Scripts
-// @version      1.0
+// @version      1.0.1
 // @description  Scans the webpage for all iframe sources.
 // @author       DARKIE
 // @run-at       document-end
@@ -23,7 +23,7 @@
     popupContainer.style.borderRadius = '10px';
     popupContainer.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.5)';
     popupContainer.style.zIndex = '9999';
-    popupContainer.style.display = 'none'; /
+    popupContainer.style.display = 'none';
     popupContainer.style.fontFamily = 'Arial, sans-serif'; 
     popupContainer.style.fontSize = '14px'; 
     popupContainer.style.scrollbarWidth = 'thin'; 
