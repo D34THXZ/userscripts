@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StreamScanner (SubStream)
 // @namespace    Violentmonkey Scripts
-// @version      2.5
+// @version      3.0
 // @description  Scan for VTT/SRT and M3U8/MP4 links on any website.
 // @author       DARKIE
 // @homepageURL  https://d34thxz.github.io/substream-viewer
@@ -13,9 +13,36 @@
 
     class StreamScanner {
         constructor() {
+            this.urlSet = new Set(); // Track found URLs to prevent duplicates
+            this.config = {
+                ui: {
+                    popup: {
+                        width: '350px',
+                        maxHeight: '500px'
+                    }
+                },
+                selectors: {
+                    vtt: '#vtt-content',
+                    srt: '#srt-content',
+                    m3u8: '#m3u8-content',
+                    mp4: '#mp4-content'
+                },
+                linkTypes: ['vtt', 'srt', 'm3u8', 'mp4']
+            };
+
             this.initUI();
             this.setupNetworkMonitoring();
             this.scanForVideoSources();
+            this.observeDOMChanges();
+        }
+
+        /* UI Initialization and Styling */
+        initUI() {
+            this.createStyles();
+            this.createPopup();
+            this.createToggleButton();
+            this.cacheDOMElements();
+            this.addEventListeners();
         }
 
         createStyles() {
@@ -24,8 +51,8 @@
                     position: fixed;
                     top: 20px;
                     right: 20px;
-                    width: 350px;
-                    max-height: 500px;
+                    width: ${this.config.ui.popup.width};
+                    max-height: ${this.config.ui.popup.maxHeight};
                     background-color: rgba(28, 28, 35, 0.95);
                     color: #f0f0f0;
                     padding: 15px;
@@ -127,21 +154,15 @@
                     background: #aaa;
                 }
             `;
-
             const styleSheet = document.createElement('style');
             styleSheet.textContent = styles;
             document.head.appendChild(styleSheet);
         }
 
-        initUI() {
-            this.createStyles();
-
-            // Create main container
+        createPopup() {
             this.popup = document.createElement('div');
             this.popup.className = 'scanner-popup';
-
-            // Create header
-            const header = `
+            this.popup.innerHTML = `
                 <div class="scanner-header">
                     <h2 class="scanner-title">Stream Scanner</h2>
                     <div class="scanner-controls">
@@ -149,51 +170,22 @@
                         <button class="scanner-button" id="scanner-close">✕</button>
                     </div>
                 </div>
+                ${this.config.linkTypes.map(type => `
+                    <div class="scanner-section" id="${type}-section">
+                        <h3 class="scanner-section-title">${type.toUpperCase()} Files</h3>
+                        <div class="scanner-content" id="${type}-content">
+                            <div class="scanner-empty">No ${type.toUpperCase()} files detected yet...</div>
+                        </div>
+                    </div>
+                `).join('')}
             `;
-
-            // Create sections
-            const sections = `
-                <div class="scanner-section" id="vtt-section">
-                    <h3 class="scanner-section-title">Subtitles (VTT)</h3>
-                    <div class="scanner-content" id="vtt-content">
-                        <div class="scanner-empty">No VTT files detected yet...</div>
-                    </div>
-                </div>
-                <div class="scanner-section" id="srt-section">
-                    <h3 class="scanner-section-title">Subtitles (SRT)</h3>
-                    <div class="scanner-content" id="srt-content">
-                        <div class="scanner-empty">No SRT files detected yet...</div>
-                    </div>
-                </div>
-                <div class="scanner-section" id="m3u8-section">
-                    <h3 class="scanner-section-title">Streams (M3U8)</h3>
-                    <div class="scanner-content" id="m3u8-content">
-                        <div class="scanner-empty">No M3U8 streams detected yet...</div>
-                    </div>
-                </div>
-                <div class="scanner-section" id="mp4-section">
-                    <h3 class="scanner-section-title">Videos (MP4)</h3>
-                    <div class="scanner-content" id="mp4-content">
-                        <div class="scanner-empty">No MP4 videos detected yet...</div>
-                    </div>
-                </div>
-            `;
-
-            this.popup.innerHTML = header + sections;
             document.body.appendChild(this.popup);
-
-            // Add event listeners
-            document.getElementById('scanner-close').addEventListener('click', () => this.hide());
-            document.getElementById('scanner-clear').addEventListener('click', () => this.clearLinks());
-
-            // Create toggle button
-            this.createToggleButton();
         }
 
         createToggleButton() {
-            const button = document.createElement('button');
-            button.className = 'scanner-button';
-            button.style.cssText = `
+            this.toggleButton = document.createElement('button');
+            this.toggleButton.className = 'scanner-button';
+            this.toggleButton.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
@@ -202,162 +194,196 @@
                 background-color: rgba(28, 28, 35, 0.95);
                 box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             `;
-            button.textContent = '🔍 Scanner';
-            button.addEventListener('click', () => this.toggle());
-            document.body.appendChild(button);
-            this.toggleButton = button;
+            this.toggleButton.textContent = '🔍 Scanner';
+            document.body.appendChild(this.toggleButton);
         }
 
+        cacheDOMElements() {
+            this.clearButton = this.popup.querySelector('#scanner-clear');
+            this.closeButton = this.popup.querySelector('#scanner-close');
+        }
+
+        addEventListeners() {
+            this.closeButton.addEventListener('click', () => this.hidePopup());
+            this.clearButton.addEventListener('click', () => this.clearLinks());
+            this.toggleButton.addEventListener('click', () => this.togglePopup());
+        }
+
+        /* Enhanced URL Pattern Matching */
+        cleanUrl(url) {
+            return url.split('?')[0]; // Remove query parameters
+        }
+
+        isSupportedVideoUrl(url) {
+            const cleanedUrl = this.cleanUrl(url);
+            const videoExtensions = /\.(mp4|m3u8|vtt|srt)$/i;
+            return videoExtensions.test(cleanedUrl);
+        }
+
+        handleUrl(url) {
+            if (typeof url !== 'string' || this.urlSet.has(url)) return;
+
+            const type = this.config.linkTypes.find(ext => url.endsWith(`.${ext}`));
+            if (type) {
+                const cleanedUrl = this.cleanUrl(url);
+                this.urlSet.add(cleanedUrl);
+                this.addLink(type, cleanedUrl);
+            }
+        }
+
+        /* Comprehensive Video Source Detection */
+        scanForVideoSources() {
+            document.querySelectorAll('video, source, object, embed, a').forEach(element => {
+                const url = element.currentSrc || element.src || element.data || element.href;
+                if (url && this.isSupportedVideoUrl(url)) this.handleUrl(url);
+            });
+
+            document.querySelectorAll('[data-src], [data-url]').forEach(element => {
+                const url = element.dataset.src || element.dataset.url;
+                if (url && this.isSupportedVideoUrl(url)) this.handleUrl(url);
+            });
+        }
+
+        /* Dynamic Content Monitoring */
+        observeDOMChanges() {
+            const observer = new MutationObserver(mutations => {
+                mutations.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) this.scanForVideoSources();
+                    });
+                });
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            this.domObserver = observer;
+        }
+
+        /* Cross-Frame Support */
+        scanIframes() {
+            document.querySelectorAll('iframe').forEach(iframe => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    iframeDoc.querySelectorAll('video, source').forEach(({ src }) => {
+                        if (src && this.isSupportedVideoUrl(src)) this.handleUrl(src);
+                    });
+                } catch (e) {
+                    console.warn('Cross-origin restriction prevents scanning iframe:', e);
+                }
+            });
+        }
+
+        /* Additional Source Types */
+        monitorSetAttribute() {
+            const originalSetAttribute = Element.prototype.setAttribute;
+            Element.prototype.setAttribute = function(name, value) {
+                if (name === 'src' && typeof value === 'string' && value.endsWith('.mp4')) {
+                    window.streamScanner.handleUrl(value);
+                }
+                return originalSetAttribute.apply(this, arguments);
+            };
+        }
+
+        /* Network Monitoring */
         setupNetworkMonitoring() {
-            // Monitor fetch requests
             const originalFetch = window.fetch;
-            window.fetch = (...args) => {
-                const url = typeof args[0] === 'string' ? args[0] : args[0].url;
-                this.checkUrl(url);
+            window.fetch = async (...args) => {
+                const { url } = args[0] instanceof Request ? args[0] : { url: args[0] };
+                if (url) this.handleUrl(url);
                 return originalFetch.apply(window, args);
             };
 
-            // Monitor XHR requests
             const originalXhrOpen = XMLHttpRequest.prototype.open;
             XMLHttpRequest.prototype.open = function(...args) {
                 const url = args[1];
-                if (typeof url === 'string') {
-                    window.streamScanner.checkUrl(url);
-                }
+                if (typeof url === 'string') window.streamScanner.handleUrl(url);
                 return originalXhrOpen.apply(this, args);
             };
 
-            // Make scanner instance globally available for XHR monitoring
             window.streamScanner = this;
         }
 
-        checkUrl(url) {
-            if (typeof url === 'string') {
-                if (url.endsWith('.vtt')) {
-                    this.addLink('vtt', url);
-                } else if (url.endsWith('.srt')) {
-                    this.addLink('srt', url);
-                } else if (url.endsWith('.m3u8')) {
-                    this.addLink('m3u8', url);
-                }
-            }
-        }
+        /* Link Management and Display */
+        async addLink(type, url) {
+            const container = document.querySelector(this.config.selectors[type]);
+            if (!container) return;
 
-        scanForVideoSources() {
-            // Select all <video> elements on the page
-            const videos = document.querySelectorAll('video');
-            videos.forEach(video => {
-                const src = video.src || video.getAttribute('src'); // Get src from video element
-                if (src && src.endsWith('.mp4')) {
-                    this.addLink('mp4', src);
-                }
-            });
-
-            // Additionally, check <source> tags inside <video> elements
-            const sources = document.querySelectorAll('source');
-            sources.forEach(source => {
-                const src = source.src || source.getAttribute('src'); // Get src from source element
-                if (src && src.endsWith('.mp4')) {
-                    this.addLink('mp4', src);
-                }
-            });
-        }
-
-
-        addLink(type, url) {
-            const container = document.getElementById(`${type}-content`);
-
-            // Check for duplicate
-            if (Array.from(container.querySelectorAll('.scanner-link'))
-                .some(link => link.textContent.includes(url))) {
-                return;
-            }
-
-            // Clear "empty" message if it exists
-            if (container.querySelector('.scanner-empty')) {
-                container.innerHTML = '';
-            }
+            if (container.querySelector('.scanner-empty')) container.innerHTML = '';
 
             const linkElement = document.createElement('div');
             linkElement.className = 'scanner-link';
             linkElement.innerHTML = `
                 ${url}
-                <div class="timestamp">
-                    Detected at ${new Date().toLocaleTimeString()}
-                </div>
+                <div class="timestamp">Detected at ${new Date().toLocaleTimeString()}</div>
             `;
 
-            // Add click-to-copy functionality with fallback
-            linkElement.addEventListener('click', () => {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(url).then(() => {
-                        // Indicate success
-                        linkElement.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
-                        setTimeout(() => {
-                            linkElement.style.backgroundColor = '';
-                        }, 500);
-                    }).catch(err => {
-                        console.error('Clipboard error:', err);
-                        this.copyFallback(url, linkElement);
-                    });
-                } else {
-                    this.copyFallback(url, linkElement);
-                }
-            });
-
-            container.insertBefore(linkElement, container.firstChild);
-            this.show();
+            linkElement.addEventListener('click', () => this.copyToClipboard(url, linkElement));
+            container.prepend(linkElement);
+            this.showPopup();
         }
 
-        // Fallback copy method
+        async copyToClipboard(text, linkElement) {
+            try {
+                await navigator.clipboard.writeText(text);
+                this.flashCopyFeedback(linkElement);
+            } catch (err) {
+                this.copyFallback(text, linkElement);
+            }
+        }
+
         copyFallback(text, linkElement) {
             const textarea = document.createElement('textarea');
             textarea.value = text;
-            textarea.style.position = 'fixed'; // Prevents scrolling to bottom
+            textarea.style.position = 'fixed';
             document.body.appendChild(textarea);
-            textarea.focus();
             textarea.select();
             try {
                 document.execCommand('copy');
-                linkElement.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
-                setTimeout(() => {
-                    linkElement.style.backgroundColor = '';
-                }, 500);
+                this.flashCopyFeedback(linkElement);
             } catch (err) {
-                console.error('Fallback copy failed:', err);
+                console.error('Copy failed:', err);
             }
             document.body.removeChild(textarea);
         }
 
-
-        clearLinks() {
-            document.getElementById('vtt-content').innerHTML = '<div class="scanner-empty">No VTT files detected yet...</div>';
-            document.getElementById('srt-content').innerHTML = '<div class="scanner-empty">No SRT files detected yet...</div>';
-            document.getElementById('m3u8-content').innerHTML = '<div class="scanner-empty">No M3U8 streams detected yet...</div>';
-            document.getElementById('mp4-content').innerHTML = '<div class="scanner-empty">No MP4 videos detected yet...</div>';
+        flashCopyFeedback(linkElement) {
+            linkElement.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
+            setTimeout(() => { linkElement.style.backgroundColor = ''; }, 500);
         }
 
-        show() {
+        /* UI Control and Cleanup */
+        clearLinks() {
+            this.config.linkTypes.forEach(type => {
+                const container = document.querySelector(this.config.selectors[type]);
+                if (container) {
+                    container.innerHTML = `<div class="scanner-empty">No ${type.toUpperCase()} files detected yet...</div>`;
+                }
+            });
+            this.urlSet.clear();
+        }
+
+        togglePopup() {
+            this.popup.style.display = this.popup.style.display === 'none' ? 'block' : 'none';
+            this.toggleButton.style.display = this.popup.style.display === 'none' ? 'block' : 'none';
+        }
+
+        showPopup() {
             this.popup.style.display = 'block';
             this.toggleButton.style.display = 'none';
         }
 
-        hide() {
+        hidePopup() {
             this.popup.style.display = 'none';
             this.toggleButton.style.display = 'block';
         }
-
-        toggle() {
-            if (this.popup.style.display === 'none') {
-                this.show();
-            } else {
-                this.hide();
-            }
-        }
     }
 
-    // Initialize scanner when page loads
     window.addEventListener('load', () => {
-        new StreamScanner();
+        const scanner = new StreamScanner();
+        scanner.scanIframes();
+        scanner.monitorSetAttribute();
     });
 })();
