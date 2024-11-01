@@ -2,8 +2,8 @@
 
 Here’s a quick rundown of some useful userscripts to help with various web scraping and data extraction tasks. Remember, these scripts are intended for personal use only and should be used responsibly.
 
-### 1. Substream
-- **Description**: Scans for VTT and M3U8 links on any website.
+### 1. StreamScanner (Substream)
+- **Description**: Scans for VTT/SRT and M3U8/MP4 links on any website.
 - **Note**: This script works on most websites, making it handy for finding streaming links and subtitles directly on the page.
 
 ### 2. IframeScan
