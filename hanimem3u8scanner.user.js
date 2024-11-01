@@ -1,39 +1,37 @@
 // ==UserScript==
 // @name         Hanime.tv M3U8 Scanner
 // @namespace    Violentmonkey Scripts
-// @version      1.3
+// @version      1.5
 // @description  Fetch and display the video stream URL.
 // @match        https://hanime.tv/videos/hentai/*
 // @author       DARKIE
 // @grant        GM_xmlhttpRequest
-// @run-at       document-end
 // ==/UserScript==
 
 (function() {
     'use strict';
 
     const videoId = window.location.pathname.split("/").pop();
-
     const apiUrl = `https://hanime.tv/api/v8/video?id=${videoId}`;
 
     function createPopup(streamUrl) {
         const popup = document.createElement('div');
-        popup.id = 'streamPopup';
-        popup.style.position = 'fixed';
-        popup.style.top = '50%';
-        popup.style.left = '50%';
-        popup.style.transform = 'translate(-50%, -50%)';
-        popup.style.padding = '20px';
-        popup.style.zIndex = '10000';
-        popup.style.backgroundColor = '#fff';
-        popup.style.border = '2px solid #333';
-        popup.style.borderRadius = '8px';
-        popup.style.boxShadow = '0px 4px 8px rgba(0, 0, 0, 0.3)';
+        Object.assign(popup.style, {
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            width: '280px', padding: '10px', color: '#f0f0f0', backgroundColor: 'rgba(28, 28, 35, 0.95)',
+            borderRadius: '10px', boxShadow: '0 3px 15px rgba(0, 0, 0, 0.3)', zIndex: '999999',
+            fontFamily: 'Arial, sans-serif', fontSize: '13px', textAlign: 'center', lineHeight: '1.4'
+        });
+
         popup.innerHTML = `
-            <h2>Stream URL</h2>
-            <p id="streamUrl" style="color: blue; cursor: pointer; text-decoration: underline;">${streamUrl}</p>
-            <p style="font-size: 0.9em; color: green; display: none;" id="copyMessage">Copied to clipboard!</p>
-            <button id="closePopup" style="margin-top: 10px; padding: 5px 10px; cursor: pointer;">Close</button>
+            <h2 style="font-size: 14px; font-weight: 600; margin: 5px 0;">Stream URL</h2>
+            <a id="streamUrl" style="color: yellow; cursor: pointer; text-decoration: underline; word-break: break-all;">${streamUrl}</a>
+            <p id="copyMessage" style="font-size: 0.85em; color: green; display: none; margin-top: 8px;">Copied to clipboard!</p>
+            <button id="closePopup" style="
+                margin-top: 10px; padding: 4px 8px; cursor: pointer;
+                background: rgba(255, 255, 255, 0.1); border: none; color: #fff;
+                border-radius: 5px; font-size: 12px; transition: background-color 0.2s;
+            ">Close</button>
         `;
 
         document.body.appendChild(popup);
@@ -42,15 +40,11 @@
             navigator.clipboard.writeText(streamUrl).then(() => {
                 const copyMessage = document.getElementById('copyMessage');
                 copyMessage.style.display = 'block';
-                setTimeout(() => {
-                    copyMessage.style.display = 'none';
-                }, 2000);
+                setTimeout(() => copyMessage.style.display = 'none', 1500);
             });
         });
 
-        document.getElementById('closePopup').addEventListener('click', () => {
-            document.body.removeChild(popup);
-        });
+        document.getElementById('closePopup').addEventListener('click', () => document.body.removeChild(popup));
     }
 
     GM_xmlhttpRequest({
@@ -59,9 +53,7 @@
         onload: function(response) {
             try {
                 const data = JSON.parse(response.responseText);
-
                 const streamUrl = data.videos_manifest.servers[0].streams[1].url;
-
                 createPopup(streamUrl);
             } catch (error) {
                 console.error("Failed to fetch or parse video data:", error);
