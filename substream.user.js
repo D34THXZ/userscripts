@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Subtitle and Stream Link Scanner
+// @name         StreamScanner (SubStream)
 // @namespace    Violentmonkey Scripts
-// @version      2.1
-// @description  Scan for VTT and M3U8 links on any website.
+// @version      2.5
+// @description  Scan for VTT/SRT and M3U8/MP4 links on any website.
 // @author       DARKIE
 // @homepageURL  https://d34thxz.github.io/substream-viewer
 // @grant        none
@@ -15,6 +15,7 @@
         constructor() {
             this.initUI();
             this.setupNetworkMonitoring();
+            this.scanForVideoSources();
         }
 
         createStyles() {
@@ -158,10 +159,22 @@
                         <div class="scanner-empty">No VTT files detected yet...</div>
                     </div>
                 </div>
+                <div class="scanner-section" id="srt-section">
+                    <h3 class="scanner-section-title">Subtitles (SRT)</h3>
+                    <div class="scanner-content" id="srt-content">
+                        <div class="scanner-empty">No SRT files detected yet...</div>
+                    </div>
+                </div>
                 <div class="scanner-section" id="m3u8-section">
                     <h3 class="scanner-section-title">Streams (M3U8)</h3>
                     <div class="scanner-content" id="m3u8-content">
                         <div class="scanner-empty">No M3U8 streams detected yet...</div>
+                    </div>
+                </div>
+                <div class="scanner-section" id="mp4-section">
+                    <h3 class="scanner-section-title">Videos (MP4)</h3>
+                    <div class="scanner-content" id="mp4-content">
+                        <div class="scanner-empty">No MP4 videos detected yet...</div>
                     </div>
                 </div>
             `;
@@ -222,11 +235,34 @@
             if (typeof url === 'string') {
                 if (url.endsWith('.vtt')) {
                     this.addLink('vtt', url);
+                } else if (url.endsWith('.srt')) {
+                    this.addLink('srt', url);
                 } else if (url.endsWith('.m3u8')) {
                     this.addLink('m3u8', url);
                 }
             }
         }
+
+        scanForVideoSources() {
+            // Select all <video> elements on the page
+            const videos = document.querySelectorAll('video');
+            videos.forEach(video => {
+                const src = video.src || video.getAttribute('src'); // Get src from video element
+                if (src && src.endsWith('.mp4')) {
+                    this.addLink('mp4', src);
+                }
+            });
+
+            // Additionally, check <source> tags inside <video> elements
+            const sources = document.querySelectorAll('source');
+            sources.forEach(source => {
+                const src = source.src || source.getAttribute('src'); // Get src from source element
+                if (src && src.endsWith('.mp4')) {
+                    this.addLink('mp4', src);
+                }
+            });
+        }
+
 
         addLink(type, url) {
             const container = document.getElementById(`${type}-content`);
@@ -296,7 +332,9 @@
 
         clearLinks() {
             document.getElementById('vtt-content').innerHTML = '<div class="scanner-empty">No VTT files detected yet...</div>';
+            document.getElementById('srt-content').innerHTML = '<div class="scanner-empty">No SRT files detected yet...</div>';
             document.getElementById('m3u8-content').innerHTML = '<div class="scanner-empty">No M3U8 streams detected yet...</div>';
+            document.getElementById('mp4-content').innerHTML = '<div class="scanner-empty">No MP4 videos detected yet...</div>';
         }
 
         show() {
