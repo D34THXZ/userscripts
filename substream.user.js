@@ -1,150 +1,295 @@
 // ==UserScript==
 // @name         Subtitle and Stream Link Scanner
 // @namespace    Violentmonkey Scripts
-// @version      1.4
+// @version      2.0
 // @description  Scan for VTT and M3U8 links on any website.
 // @author       DARKIE
 // @homepageURL  https://d34thxz.github.io/substream-viewer
 // @grant        none
 // ==/UserScript==
 
-(function () {
+(function() {
     'use strict';
 
-    const popupContainer = document.createElement('div');
-    popupContainer.style.position = 'fixed';
-    popupContainer.style.bottom = '20px';
-    popupContainer.style.right = '20px';
-    popupContainer.style.width = '300px';
-    popupContainer.style.maxHeight = '400px';
-    popupContainer.style.overflowY = 'auto';
-    popupContainer.style.backgroundColor = 'rgba(30, 30, 30, 0.9)';
-    popupContainer.style.color = '#f0f0f0';
-    popupContainer.style.padding = '10px';
-    popupContainer.style.borderRadius = '10px';
-    popupContainer.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.5)';
-    popupContainer.style.zIndex = '9999';
-    popupContainer.style.display = 'none';
-    popupContainer.style.fontFamily = 'Arial, sans-serif';
-    popupContainer.style.fontSize = '14px';
-    popupContainer.style.scrollbarWidth = 'thin';
-    popupContainer.style.scrollbarColor = '#888 #444';
-
-    const style = document.createElement('style');
-    style.textContent = `
-        /* Custom scrollbar styles */
-        ::-webkit-scrollbar {
-            width: 8px;  /* Width of the scrollbar */
-        }
-        ::-webkit-scrollbar-track {
-            background: #444;  /* Background of the scrollbar track */
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #888;  /* Color of the scrollbar thumb */
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #aaa;  /* Color of the scrollbar thumb on hover */
-        }
-    `;
-    document.head.appendChild(style);
-
-    document.body.appendChild(popupContainer);
-
-    const closeButton = document.createElement('button');
-    closeButton.textContent = '✖ Close';
-    closeButton.style.position = 'absolute';
-    closeButton.style.top = '5px';
-    closeButton.style.right = '5px';
-    closeButton.style.backgroundColor = 'transparent';
-    closeButton.style.border = 'none';
-    closeButton.style.color = '#f0f0f0';
-    closeButton.style.cursor = 'pointer';
-    closeButton.style.fontSize = '16px';
-    closeButton.addEventListener('click', () => {
-        popupContainer.style.display = 'none';
-    });
-    popupContainer.appendChild(closeButton);
-
-    const vttSection = document.createElement('div');
-    const m3u8Section = document.createElement('div');
-
-    const vttTitle = document.createElement('h3');
-    vttTitle.textContent = 'VTT Links';
-    vttTitle.style.margin = '0 0 10px 0';
-    vttTitle.style.borderBottom = '1px solid rgba(255, 255, 255, 0.2)';
-    vttTitle.style.fontSize = '16px';
-
-    const m3u8Title = document.createElement('h3');
-    m3u8Title.textContent = 'M3U8 Links';
-    m3u8Title.style.margin = '10px 0 10px 0';
-    m3u8Title.style.borderBottom = '1px solid rgba(255, 255, 255, 0.2)';
-    m3u8Title.style.fontSize = '16px';
-
-    vttSection.appendChild(vttTitle);
-    m3u8Section.appendChild(m3u8Title);
-
-    popupContainer.appendChild(vttSection);
-    popupContainer.appendChild(m3u8Section);
-
-    function showPopup() {
-        popupContainer.style.display = 'block';
-    }
-
-    function addMessage(type, message) {
-        const messageElement = document.createElement('div');
-        messageElement.textContent = message;
-        messageElement.style.padding = '5px 0';
-        messageElement.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
-        messageElement.style.overflow = 'hidden';
-        messageElement.style.maxWidth = '100%';
-
-        messageElement.style.wordWrap = 'break-word';
-        messageElement.style.whiteSpace = 'normal';
-
-        if (type === 'vtt') {
-            vttSection.appendChild(messageElement);
-        } else if (type === 'm3u8') {
-            m3u8Section.appendChild(messageElement);
+    class StreamScanner {
+        constructor() {
+            this.initUI();
+            this.setupNetworkMonitoring();
         }
 
-        showPopup();
-    }
+        createStyles() {
+            const styles = `
+                .scanner-popup {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    width: 350px;
+                    max-height: 500px;
+                    background-color: rgba(28, 28, 35, 0.95);
+                    color: #f0f0f0;
+                    padding: 15px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                    font-family: system-ui, -apple-system, sans-serif;
+                    font-size: 14px;
+                    z-index: 999999;
+                    display: none;
+                    overflow-y: auto;
+                    backdrop-filter: blur(5px);
+                }
 
-    function checkForLinks() {
-        const originalFetch = window.fetch;
-        const originalXhrOpen = XMLHttpRequest.prototype.open;
+                .scanner-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 15px;
+                }
 
-        window.fetch = function (...args) {
-            const url = args[0];
+                .scanner-title {
+                    font-size: 16px;
+                    font-weight: 600;
+                    margin: 0;
+                }
+
+                .scanner-controls {
+                    display: flex;
+                    gap: 8px;
+                }
+
+                .scanner-button {
+                    background-color: rgba(255, 255, 255, 0.1);
+                    border: none;
+                    color: #fff;
+                    padding: 5px 10px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: background-color 0.2s;
+                }
+
+                .scanner-button:hover {
+                    background-color: rgba(255, 255, 255, 0.2);
+                }
+
+                .scanner-section {
+                    margin-bottom: 15px;
+                }
+
+                .scanner-section-title {
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin: 0 0 8px 0;
+                    padding-bottom: 5px;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .scanner-link {
+                    padding: 8px;
+                    margin: 5px 0;
+                    background-color: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    word-break: break-all;
+                    font-size: 12px;
+                    cursor: pointer;
+                    position: relative;
+                }
+
+                .scanner-link:hover {
+                    background-color: rgba(255, 255, 255, 0.1);
+                }
+
+                .scanner-link .timestamp {
+                    font-size: 10px;
+                    color: rgba(255, 255, 255, 0.5);
+                    margin-top: 4px;
+                }
+
+                .scanner-empty {
+                    color: rgba(255, 255, 255, 0.5);
+                    font-style: italic;
+                    font-size: 12px;
+                }
+
+                /* Scrollbar styles */
+                .scanner-popup::-webkit-scrollbar {
+                    width: 8px;
+                }
+                .scanner-popup::-webkit-scrollbar-track {
+                    background: #444;
+                    border-radius: 10px;
+                }
+                .scanner-popup::-webkit-scrollbar-thumb {
+                    background: #888;
+                    border-radius: 10px;
+                }
+                .scanner-popup::-webkit-scrollbar-thumb:hover {
+                    background: #aaa;
+                }
+            `;
+
+            const styleSheet = document.createElement('style');
+            styleSheet.textContent = styles;
+            document.head.appendChild(styleSheet);
+        }
+
+        initUI() {
+            this.createStyles();
+
+            // Create main container
+            this.popup = document.createElement('div');
+            this.popup.className = 'scanner-popup';
+
+            // Create header
+            const header = `
+                <div class="scanner-header">
+                    <h2 class="scanner-title">Stream Scanner</h2>
+                    <div class="scanner-controls">
+                        <button class="scanner-button" id="scanner-clear">Clear</button>
+                        <button class="scanner-button" id="scanner-close">✕</button>
+                    </div>
+                </div>
+            `;
+
+            // Create sections
+            const sections = `
+                <div class="scanner-section" id="vtt-section">
+                    <h3 class="scanner-section-title">Subtitles (VTT)</h3>
+                    <div class="scanner-content" id="vtt-content">
+                        <div class="scanner-empty">No VTT files detected yet...</div>
+                    </div>
+                </div>
+                <div class="scanner-section" id="m3u8-section">
+                    <h3 class="scanner-section-title">Streams (M3U8)</h3>
+                    <div class="scanner-content" id="m3u8-content">
+                        <div class="scanner-empty">No M3U8 streams detected yet...</div>
+                    </div>
+                </div>
+            `;
+
+            this.popup.innerHTML = header + sections;
+            document.body.appendChild(this.popup);
+
+            // Add event listeners
+            document.getElementById('scanner-close').addEventListener('click', () => this.hide());
+            document.getElementById('scanner-clear').addEventListener('click', () => this.clearLinks());
+
+            // Create toggle button
+            this.createToggleButton();
+        }
+
+        createToggleButton() {
+            const button = document.createElement('button');
+            button.className = 'scanner-button';
+            button.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 999998;
+                padding: 8px 15px;
+                background-color: rgba(28, 28, 35, 0.95);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            `;
+            button.textContent = '🔍 Scanner';
+            button.addEventListener('click', () => this.toggle());
+            document.body.appendChild(button);
+            this.toggleButton = button;
+        }
+
+        setupNetworkMonitoring() {
+            // Monitor fetch requests
+            const originalFetch = window.fetch;
+            window.fetch = (...args) => {
+                const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+                this.checkUrl(url);
+                return originalFetch.apply(window, args);
+            };
+
+            // Monitor XHR requests
+            const originalXhrOpen = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function(...args) {
+                const url = args[1];
+                if (typeof url === 'string') {
+                    window.streamScanner.checkUrl(url);
+                }
+                return originalXhrOpen.apply(this, args);
+            };
+
+            // Make scanner instance globally available for XHR monitoring
+            window.streamScanner = this;
+        }
+
+        checkUrl(url) {
             if (typeof url === 'string') {
                 if (url.endsWith('.vtt')) {
-                    console.log('VTT file requested:', url);
-                    addMessage('vtt', `VTT file requested: ${url}`);
+                    this.addLink('vtt', url);
                 } else if (url.endsWith('.m3u8')) {
-                    console.log('M3U8 file requested:', url);
-                    addMessage('m3u8', `M3U8 file requested: ${url}`);
+                    this.addLink('m3u8', url);
                 }
             }
-            return originalFetch.apply(this, args);
-        };
+        }
 
-        XMLHttpRequest.prototype.open = function (method, url) {
-            if (typeof url === 'string') {
-                if (url.endsWith('.vtt')) {
-                    console.log('VTT file requested:', url);
-                    addMessage('vtt', `VTT file requested: ${url}`);
-                } else if (url.endsWith('.m3u8')) {
-                    console.log('M3U8 file requested:', url);
-                    addMessage('m3u8', `M3U8 file requested: ${url}`);
-                }
+        addLink(type, url) {
+            const container = document.getElementById(`${type}-content`);
+
+            // Check for duplicate
+            if (Array.from(container.querySelectorAll('.scanner-link'))
+                .some(link => link.textContent.includes(url))) {
+                return;
             }
-            return originalXhrOpen.apply(this, arguments);
-        };
+
+            // Clear "empty" message if it exists
+            if (container.querySelector('.scanner-empty')) {
+                container.innerHTML = '';
+            }
+
+            const linkElement = document.createElement('div');
+            linkElement.className = 'scanner-link';
+            linkElement.innerHTML = `
+                ${url}
+                <div class="timestamp">
+                    Detected at ${new Date().toLocaleTimeString()}
+                </div>
+            `;
+
+            // Add click-to-copy functionality
+            linkElement.addEventListener('click', () => {
+                navigator.clipboard.writeText(url);
+                linkElement.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
+                setTimeout(() => {
+                    linkElement.style.backgroundColor = '';
+                }, 500);
+            });
+
+            container.insertBefore(linkElement, container.firstChild);
+            this.show();
+        }
+
+        clearLinks() {
+            document.getElementById('vtt-content').innerHTML = '<div class="scanner-empty">No VTT files detected yet...</div>';
+            document.getElementById('m3u8-content').innerHTML = '<div class="scanner-empty">No M3U8 streams detected yet...</div>';
+        }
+
+        show() {
+            this.popup.style.display = 'block';
+            this.toggleButton.style.display = 'none';
+        }
+
+        hide() {
+            this.popup.style.display = 'none';
+            this.toggleButton.style.display = 'block';
+        }
+
+        toggle() {
+            if (this.popup.style.display === 'none') {
+                this.show();
+            } else {
+                this.hide();
+            }
+        }
     }
 
+    // Initialize scanner when page loads
     window.addEventListener('load', () => {
-        checkForLinks();
+        new StreamScanner();
     });
 })();
