@@ -4,6 +4,7 @@
 // @version      1.4
 // @description  Scan for VTT and M3U8 links on any website.
 // @author       DARKIE
+// @homepageURL  https://d34thxz.github.io/substream-viewer
 // @grant        none
 // ==/UserScript==
 
