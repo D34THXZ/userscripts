@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Userscripts Collection</title>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --glass-bg: rgba(30, 41, 59, 0.7);
+      --shadow-color: rgba(0, 0, 0, 0.3);
+      --accent-color: #8b5cf6;
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --card-bg: rgba(30, 41, 59, 0.95);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg-primary);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: 
+        0 8px 32px 0 var(--shadow-color),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+      transform: translateY(20px);
+      opacity: 0;
+      animation: slideUp 0.6s ease forwards;
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--text-primary);
+      margin-bottom: 2rem;
+      font-weight: 700;
+      font-size: 2.5rem;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .script-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      transform: translateY(20px);
+      opacity: 0;
+      animation: slideUp 0.6s ease forwards;
+      box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.2),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .script-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.3),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(30, 41, 59, 1);
+    }
+
+    .script-title {
+      font-size: 1.25rem;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .script-description {
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--accent-color);
+      color: white;
+      font-size: 1rem;
+      letter-spacing: 0.5px;
+      box-shadow: 
+        0 4px 12px rgba(139, 92, 246, 0.3),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 6px 16px rgba(139, 92, 246, 0.4),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      background: #9f75ff;
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 
+        0 2px 8px rgba(139, 92, 246, 0.3),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    @keyframes slideUp {
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .script-card:nth-child(2) { animation-delay: 0.1s; }
+    .script-card:nth-child(3) { animation-delay: 0.2s; }
+    .script-card:nth-child(4) { animation-delay: 0.3s; }
+
+    /* Add a subtle gradient animation to the background */
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    body {
+      background: linear-gradient(
+        135deg,
+        #0f172a 0%,
+        #1e293b 50%,
+        #0f172a 100%
+      );
+      background-size: 200% 200%;
+      animation: gradientShift 15s ease infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Userscripts</h1>
+    <div class="script-card">
+      <h2 class="script-title">StreamScanner</h2>
+      <p class="script-description">Scan for VTT/SRT and M3U8/MP4 links on any website.</p>
+      <button class="btn" onclick="window.location.href='./substream.user.js'">Install</button>
+    </div>
+
+    <div class="script-card">
+      <h2 class="script-title">Iframe Source Scanner</h2>
+      <p class="script-description">Scans the webpage for all iframe sources.</p>
+      <button class="btn" onclick="window.location.href='./iframescan.user.js'">Install</button>
+    </div>
+
+    <div class="script-card">
+      <h2 class="script-title">Smooth Scroll Function</h2>
+      <p class="script-description">Winceptor (on greasyfork) created this userscript, which uses JavaScript to enable smooth page scrolling. I just made it better.</p>
+      <button class="btn" onclick="window.loaction.href='https://greasyfork.org/en/scripts/501620-smooth-scroll-function'">Install</button>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.btn').forEach(button => {
+      button.addEventListener('click', function() {
+        this.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          this.style.transform = 'scale(1)';
+        }, 100);
+      });
+    });
+
+    const observerOptions = {
+      threshold: 0.1
+    };
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('.script-card').forEach(card => {
+      observer.observe(card);
+    });
+  </script>
+</body>
+</html>
