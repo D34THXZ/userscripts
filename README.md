@@ -10,7 +10,7 @@ Here’s a quick rundown of some useful userscripts to help with various web scr
 - **Description**: Scans the webpage for all iframe sources.
 - **Note**: Great for locating embedded content or media on a webpage.
 
-### 3. Hanime.tv Video Source Reader
+### 3. Hanime.tv Video Source Reader (Note: This will no longer be updated as of 11-2-24, as StreamScanner 3.0 has been updated to do this.)
 - **Description**: Reads source URLs for streams (specifically HLS links).
 - **Important**: Do not attempt to stream HLS links from a different host than the original. For the best results, download streams directly using `yt-dlp` with this command:
   ```bash
